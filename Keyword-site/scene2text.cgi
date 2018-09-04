@@ -30,6 +30,7 @@ from ptstemmer.implementations.PorterStemmer import PorterStemmer
 from ptstemmer.support import PTStemmerUtilities
 
 
+
 #cgitb.enable()  # for troubleshooting
 
 
@@ -68,6 +69,27 @@ s = OrengoStemmer() #or PorterStemmer or SavoyStemmer
 s.enableCaching(1000)
 
 
+
+def anotacao(text):
+	f = {"text":text , "confidence" : "0.5" , "types" : "Concept"}
+	a = urllib.parse.urlencode(f)
+	#print(a)
+	conn = http.client.HTTPConnection("model.dbpedia-spotlight.org:80")
+	conn.request("GET", "/annotate?" +a)
+	response = conn.getresponse().read().decode("UTF-8")
+	soup = BeautifulSoup(str(response), 'lxml')
+	l = soup.find_all('a', href=True)
+	refs = []
+	if (l):
+
+		for a in l :
+			
+			refs.append(a['href'])
+	return refs		
+ 
+
+
+
 D = glob.glob("[0-9]*")
 tam = len(D)
 for x in range (0,tam):
@@ -94,9 +116,9 @@ if(run=="1"):
 if(already == 0):
 	text = ''
 	cenas=[]
-	
+	token_lists = []
 	inicio_cena=[]
-
+	
 	tr=''
 	for x in range(0 , tam):
 		transcripts=[]
@@ -114,6 +136,8 @@ if(already == 0):
 		#frames =glob.glob(D[x]+"/frame*")
 		for tc in transcripts:
 			text += open(tc,'r',encoding='utf-8').read()
+			aux = open(tc,'r',encoding='utf-8').read().lower().replace('\n',' ').split(' ')
+			token_lists.append(aux)
 		#for fm in frames:
 		#	text += open(fm,'r').read()
 		cenas.append(text)
@@ -125,6 +149,21 @@ if(already == 0):
 	 
 	words = tfidf_vectorizer.get_feature_names()
 
+	'''refs = []
+	for x in range (0,len(cenas)):
+		refs.append(anotacao(cenas[x]))'''
+
+	'''	#Montando matriz de co-ocorrencia !!!!PENSE EM COMO USAR ISSO AGORA!!!
+	m_size = len(words)
+
+	matrix = [[0 for x in range(m_size)] for y in range(m_size)] 
+
+	for x in range(0,m_size):
+		for y in range(0,m_size):
+			if(x!=y):
+				for z in range(0,len(token_lists)):
+					if(words[x] in token_lists[z] and words[y] in token_lists[z]): 
+						matrix[x][y]+=1			'''
 	
 	full_list=[]
 	tuplas=[]
@@ -268,7 +307,8 @@ print ("""
   })();
 </script>
 
-<gcse:searchresults-only gname="gsearch"></gcse:searchresults-only>
+<gcse:searchresults-only gname="gsearch" webSearchQueryAddition="matrix linear equations"></gcse:searchresults-only>
+
 
 
 
@@ -382,11 +422,14 @@ vid.ontimeupdate = function(){
 }
 
 function fetchResults(searchQuery) {
-  const endpoint = `https://en.wikipedia.org/w/api.php?action=query&list=search&prop=info&inprop=url&utf8=&format=json&origin=*&srlimit=3&srsearch=${searchQuery}`;
+  const endpoint = `https://en.wikipedia.org/w/api.php?format=json&action=query&&generator=search&gsrsearch=${searchQuery}&gsrlimit=5&origin=*&prop=pageimages|extracts&exintro&explaintext&redirects=1`;
   fetch(endpoint)
     .then(response => response.json())
     .then(data => {
-      const results = data.query.search;
+      const results = data.query.pages;
+      for (var result in results){
+	console.log(results[result].extract);
+}
       displayResults(results);
   });
 }
@@ -397,19 +440,23 @@ function displayResults(results) {
   // Remove all child elements
   searchResults.innerHTML = "";
   // Loop over results array
-  results.forEach(result => {
-  const url = encodeURI(`https://en.wikipedia.org/wiki/${result.title}`);
+
+  for (var result in results){
+	const url = encodeURI(`https://en.wikipedia.org/wiki/${results[result].title}`);
 
   searchResults.insertAdjacentHTML("beforeend",
       `<div class="resultItem">
         <h3 class="resultItem-title">
-          <a href="${url}" target="_blank" rel="noreferrer">${result.title}</a>
+          <a>${results[result].title}</a>
         </h3>
-        <span class="resultItem-snippet">${result.snippet}</span><br>
-        <a href="${url}" class="resultItem-link" target="_blank" rel="noreferrer">${url}</a>
+	<img src= ${results[result].thumbnail.source} width="100" height="100">
+        <span class="resultItem-snippet">${results[result].extract}</span><br>
       </div>`
     );
-  });
+
+}
+
+
 }
 
 
