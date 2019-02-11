@@ -1,0 +1,19 @@
+Upload de arquivo : 
+
+curl -F "upfile=@file.zip" -F bankid=X 'http://localhost:5000/api/upload'
+
+
+
+Iniciando novo blazegraph na porta X:
+
+java -Djetty.port=X -jar blazegraph.jar
+
+Criando namespace:
+
+curl -X POST -H 'Content-type: application/xml' --data @ns.xml http://localhost:9999/blazegraph/namespace
+
+
+Consulta no sparql/blazegraph que pode ser util futuramente:
+
+prefix : <http://videos/1/topics/>
+select  ?topic ?value { :0 ?topic ?value FILTER (?topic != <http://timestart>) FILTER(?value > 0.5) }

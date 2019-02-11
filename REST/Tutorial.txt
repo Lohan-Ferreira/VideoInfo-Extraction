@@ -1,0 +1,20 @@
+Initialization:
+	-Run blazegraph: java -jar blazegraph.jar
+	-Run rest server: python3 rest.py
+
+Sending video data to server to be stored on bank X(Integer):
+	curl -F "upfile=@file.zip" -F bankid=X 'http://localhost:5000/api/upload'
+
+	Expected zip file must have: a directory with transcripts, "seg.txt" and .json with scenes distribution
+	(For an exemple check video.zip within this directory)
+
+
+HOW IT WORKS?
+Videos sent to server will be stored in a personal directory called "bank_setups". Inside it you
+will find many directories with numbers that are related to a specific namespace on blazegraph.
+When a video sent requests a new namespace, a new one is created in blazegraph and a new directory 
+in the server to keep it.
+Blazegraph keeps on each namespace:
+	-Topic count for each video
+	-Timestart for each topic
+	-Similarity value between topics
