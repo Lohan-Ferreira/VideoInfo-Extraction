@@ -287,7 +287,7 @@ relateds = []
 for i in range(0,len(inicio_cena)):
 	relateds_aux = []
 	sparql.setQuery("""
-	select  ?topic ?value { ?topic <http://videos/"""+str(videoid)+"""/topics/"""+str(i)+"""> ?value FILTER (?topic != <http://timestart>) FILTER(?value > 0.5) }
+	select  ?topic ?value { ?topic <http://videos/"""+str(videoid)+"""/topics/"""+str(i)+"""> ?value FILTER (?topic != <http://timestart>) FILTER(?value > 0.8) }
 	""")
 	sparql.setReturnFormat(JSON)
 	results = sparql.query().convert()
@@ -306,7 +306,7 @@ print ('Content-type: text/html; charset=utf-8')
 
 print ("""
 <html>
-
+<link type="text/css" rel="stylesheet" href="/style.css" />
 <head>
 <title>Sample CGI Script</title>
   <meta charset="UTF-8">
@@ -318,9 +318,9 @@ print ("""
 
 <body>
 
-<h3> CGI VIDEO INFO </h3>
+<h3>VIDEO</h3>
 
-<video id="myvideo" width="320" height="240" controls>
+<video id="myvideo" width="70%" height="70%" controls>
   <source src="GEN.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video> 
@@ -338,8 +338,11 @@ print ("""
     s.parentNode.insertBefore(gcse, s);
   })();
 </script>
-
-<gcse:searchresults-only gname="gsearch" webSearchQueryAddition=""></gcse:searchresults-only>
+<div class="aditional">
+Mídias Adicionais
+<button title="Click to show/hide content" type="button" onclick="if(document.getElementById('search') .style.display=='none') {document.getElementById('search') .style.display=''}else{document.getElementById('search') .style.display='none'}">Google</button>
+<button title="Click to show/hide content" type="button" onclick="if(document.getElementById('sdiv') .style.display=='none') {document.getElementById('sdiv') .style.display=''}else{document.getElementById('sdiv') .style.display='none'}">Wikipedia</button>
+</div>
 
 
 
@@ -413,12 +416,32 @@ for x in range (0,len(inicio_cena)):
 
 
 print ("""
-<div id="sdiv"></div>
-<div id="bdiv"></div>
+
+
+
+<div class="relateds" id="bdiv"></div>
 <div id="debug"></div>
+
+<div class=luminosity>
+Brilho da tela
+<button id="Luminosity" type="button" onclick="luminosity()">Alterar</button>
+</div>
 
 
 <script>
+
+function luminosity() {
+  if(document.body.style.backgroundColor== "black")
+	{	document.body.style.backgroundColor="white";
+		//document.body.style.backgroundImage="url('paper2.jpg')";
+		document.body.style.color= "black";
+	}
+  else
+	{
+		document.body.style.backgroundColor= "black";
+		document.body.style.color= "white";
+	}
+}
 
 
 var tempos = %s;
@@ -443,8 +466,8 @@ vid.ontimeupdate = function(){
 			while (container.firstChild) {
     				container.removeChild(container.firstChild);
 			}
-
-
+			
+			container.append("Videos Relacionados");
 			for(i = 0; i< relateds[cena_atual].length;i++){
 				if(parseFloat(relateds[cena_atual][i][1]) >= 0.8){
 				videoid = relateds[cena_atual][i][0][0];
@@ -452,6 +475,7 @@ vid.ontimeupdate = function(){
 				var button = document.createElement("input");
 				button.type = "button";
 				button.value = "Video "+videoid+" topico" + sceneid;
+				button.className="acount-btn";
 				button.onclick = function()
 				{
 					var f = document.createElement("form");
@@ -475,6 +499,8 @@ vid.ontimeupdate = function(){
 			gsearch.execute(top_keywords[cena_atual]);
 			//ELemento para busca dinamica no wikipedia
 			fetchResults(top_keywords[cena_atual]);
+			document.getElementById('sdiv') .style.display='none';
+			document.getElementById('search') .style.display='none';
 
 
 		cena_buscada=cena_atual;
@@ -501,22 +527,23 @@ function displayResults(results) {
   // Remove all child elements
   searchResults.innerHTML = "";
   // Loop over results array
+  searchResults.insertAdjacentHTML("beforeend",
+      `<img src="../../../wikipedia.png" class="center" width="240" height="180">`);
 
   for (var result in results){
 	const url = encodeURI(`https://en.wikipedia.org/wiki/${results[result].title}`);
 
   searchResults.insertAdjacentHTML("beforeend",
-      `<div class="resultItem">
+      `<div class="wikidata-in">
         <h3 class="resultItem-title">
-          <a>${results[result].title}</a>
+          <a href=${url} target="_blank">${results[result].title}</a>
         </h3>
-	<img src= ${results[result].thumbnail.source} width="100" height="100">
         <span class="resultItem-snippet">${results[result].extract}</span><br>
       </div>`
     );
 
 }
-
+//<img  src= ${results[result].thumbnail.source} width="100" height="100">
 
 }
 
@@ -528,8 +555,7 @@ function displayResults(results) {
    <input type = "hidden" value = "Run the Program!!!">
 </form>
 
-<p>Keyword: %s </p>
-%s
+
 <p>
 Digite uma palavra de busca
 <form name = "myform" method="post" action="newsite.cgi">
@@ -546,20 +572,26 @@ Cenas Relacionadas:
 </body>
 
 </html>
-""" % (tempo_inicio_cena,top_keywords,relateds,scene_request,relateds,keyword,dicts,inicio_cena,keyword,top_keywords))
+""" % (tempo_inicio_cena,top_keywords,relateds,scene_request,dicts,inicio_cena,keyword,top_keywords))
 
 
 
 for e in cena:
 	print("""
 
-<button id="%s" onclick="scene_control(%s)">%s</button>
+<button class="acount-btn" id="%s" onclick="scene_control(%s)">%s</button>
 
 </html>
 
 """ %(e,e,e))
 
-
+print("""
+<div class="wikidata" id="search">
+<gcse:searchresults-only gname="gsearch" webSearchQueryAddition=""></gcse:searchresults-only>
+</div>
+<div class="wikidata" id="sdiv">
+ </div>
+""")
 
 
 
