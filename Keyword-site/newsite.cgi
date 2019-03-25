@@ -49,10 +49,6 @@ def find_times(f):
 	return times
 
 
-f = open("seg.txt")
-times = find_times(f.read())
-already = 0
-
 
 
 form = cgi.FieldStorage()
@@ -62,10 +58,20 @@ oldkeys = form.getvalue("oldkeys")
 run = form.getvalue("run")
 oldcenas = form.getvalue("oldcenas")
 top_keywords = form.getvalue("top_keywords")
-scene_request = form.getvalue("sceneid");
+scene_request = form.getvalue("sceneid")
+bankid = form.getvalue("bankid")
+videoid = form.getvalue("videoid")
+
+base_path = str(bankid)+"/"+str(videoid)+"/"
+
 if(scene_request is None):
 	scene_request = "0";
 dicts=[]
+
+f = open(base_path+"seg.txt")
+times = find_times(f.read())
+already = 0
+
 
 #Stemmer - ingles
 stemmer = Stemmer()
@@ -124,7 +130,7 @@ if(already == 0):
 	cenas=[]
 	inicio_cena=[]
 
-	data = open("GEN.json").read()
+	data = open(base_path+"GEN.json").read()
 	data = ast.literal_eval(data)
 
 	elements = sorted(data.items(), key=operator.itemgetter(0), reverse = True)
@@ -143,18 +149,20 @@ if(already == 0):
 	inicio_cena.append(0)
 	for i in range(0, len(times)):
 		if(scene_step == len(sequences) or sequences[scene_step] > times[i] ):
-			aux += open("transcript/transcript" + str(i) + ".txt").read().replace('\n',' ') + ' '
+			aux += open(base_path+"transcript/transcript" + str(i) + ".txt").read().replace('\n',' ') + ' '
 		else:
 			inicio_cena.append(i)
 			cenas.append(aux)
 			scene_step += 1
 			aux = ""
-			aux += open("transcript/transcript" + str(i) + ".txt").read().replace('\n',' ') + ' '
+			aux += open(base_path+"transcript/transcript" + str(i) + ".txt").read().replace('\n',' ') + ' '
 
 	cenas.append(aux)
 	
-
-	tfidf_vectorizer = TfidfVectorizer(max_features=2000,stop_words = stopwordsen , min_df=3, ngram_range=(1,2))
+	if(len(cenas)<=3):
+		tfidf_vectorizer = TfidfVectorizer(max_features=2000,stop_words = stopwordsen , min_df=1, ngram_range=(1,2))
+	else:
+		tfidf_vectorizer = TfidfVectorizer(max_features=2000,stop_words = stopwordsen , min_df=3, ngram_range=(1,2))
 
 	tf = tfidf_vectorizer.fit_transform(cenas)
 	 
@@ -279,15 +287,32 @@ for x in range(1,len(aux)):
 '''
 
 #Adquirindo relacionados de cada topico
-path = os.getcwd().replace("/opt/lampp/htdocs/REST/bank_setups/",'').split('/')
-bankid = path[0]
-videoid= path[1]
+
+#path = os.getcwd().replace("/opt/lampp/htdocs/REST/bank_setups/",'').split('/')
+#bankid = path[0]
+#videoid= path[1]
+
 sparql = SPARQLWrapper("http://localhost:9999/blazegraph/namespace/id_"+str(bankid)+"/sparql")
 relateds = []
 for i in range(0,len(inicio_cena)):
+
+#First half of relateds
+
 	relateds_aux = []
 	sparql.setQuery("""
-	select  ?topic ?value { ?topic <http://videos/"""+str(videoid)+"""/topics/"""+str(i)+"""> ?value FILTER (?topic != <http://timestart>) FILTER(?value > 0.8) }
+	select  ?topic ?value { ?topic <http://videos/"""+str(videoid)+"""/topics/"""+str(i)+"""> ?value FILTER (?topic != <http://timestart>) FILTER(?value > 0.9) }
+	""")
+	sparql.setReturnFormat(JSON)
+	results = sparql.query().convert()
+	#print(results)
+
+	for result in results["results"]["bindings"]:
+		relateds_aux.append([result["topic"]["value"].replace("http://videos/",'').replace("/topics",'').split('/'),result["value"]["value"]])
+
+
+#Second half of relateds
+	sparql.setQuery("""
+	select  ?topic ?value { <http://videos/"""+str(videoid)+"""/topics/"""+str(i)+"""> ?topic ?value FILTER (?topic != <http://timestart>) FILTER(?value > 0.9) }
 	""")
 	sparql.setReturnFormat(JSON)
 	results = sparql.query().convert()
@@ -321,12 +346,11 @@ print ("""
 <h3>VIDEO</h3>
 
 <video id="myvideo" width="70%" height="70%" controls>
-  <source src="GEN.mp4" type="video/mp4">
+  <source src="{0}GEN.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video> 
-
-
-
+""".format(base_path))
+print("""
 <script>
   (function() {
     var cx = '004457791971694130138:zqmnlekmbk0';
@@ -356,13 +380,7 @@ Mídias Adicionais
 
 
 <script>
-function scene_control(scene) {
-
-
-
-
-
-""")
+function scene_control(scene) { """)
 
 
 
@@ -448,6 +466,7 @@ var tempos = %s;
 var top_keywords = %s;
 var relateds = %s;
 var scene_request = %s;
+var bankid = %s;
 var cena_atual = 0;
 var cena_buscada = -1;
 var vid = document.getElementById("myvideo");
@@ -480,14 +499,24 @@ vid.ontimeupdate = function(){
 				{
 					var f = document.createElement("form");
 					f.method = "POST";
-					f.action = "../"+videoid+"/newsite.cgi";
+					f.action = "newsite.cgi";
 
-					var s = document.createElement("input"); //input element, Submit button
-					s.name="sceneid"
-					s.value=sceneid;
+					var sceneid_input = document.createElement("input");
+					sceneid_input.name="sceneid";
+					sceneid_input.value=sceneid;
+
+					var  bankid_input = document.createElement("input"); 
+					bankid_input.name="bankid";
+					bankid_input.value=bankid;
+
+					var  videoid_input = document.createElement("input"); 
+					videoid_input.name="videoid";
+					videoid_input.value=videoid;
 
 
-					f.appendChild(s);
+					f.appendChild(sceneid_input);
+					f.appendChild(bankid_input);
+					f.appendChild(videoid_input);
 
     					document.body.appendChild(f);
 					f.submit();
@@ -528,7 +557,7 @@ function displayResults(results) {
   searchResults.innerHTML = "";
   // Loop over results array
   searchResults.insertAdjacentHTML("beforeend",
-      `<img src="../../../wikipedia.png" class="center" width="240" height="180">`);
+      `<img src="../wikipedia.png" class="center" width="240" height="180">`);
 
   for (var result in results){
 	const url = encodeURI(`https://en.wikipedia.org/wiki/${results[result].title}`);
@@ -557,7 +586,7 @@ function displayResults(results) {
 
 
 <p>
-Digite uma palavra de busca
+Digite uma palavra de busca :
 <form name = "myform" method="post" action="newsite.cgi">
     <p><input type="text" name="message" value =""/></p>
     <p><input type="hidden" name="run" value="1" /></p>
@@ -565,6 +594,8 @@ Digite uma palavra de busca
     <p><input type="hidden" name="oldcenas" value="%s" /></p>
     <p><input type="hidden" name="oldkeys" value="%s" /></p>
     <p><input type="hidden" name="top_keywords" value="%s" /></p>
+    <p><input type="hidden" name="bankid" value="%s" /></p>
+    <p><input type="hidden" name="videoid" value="%s" /></p>
 
 </form>
 
@@ -572,7 +603,7 @@ Cenas Relacionadas:
 </body>
 
 </html>
-""" % (tempo_inicio_cena,top_keywords,relateds,scene_request,dicts,inicio_cena,keyword,top_keywords))
+""" % (tempo_inicio_cena,top_keywords,relateds,scene_request,bankid,dicts,inicio_cena,keyword,top_keywords,bankid,videoid))
 
 
 
