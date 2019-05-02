@@ -1,0 +1,96 @@
+Este documento tem como objetivo instruir sobre a instalação do sistema S.E.R.
+e esclarecimento sobre partes importantes do método assim como soluções pra possíveis erros
+a serem encontrados durante o processo.
+Lembrando que este tutorial assim como o sistema foi desenvolvido e testado somente em 
+sistemas operacionais LINUX e portanto não haverá muita informação caso queira ser instalado em sistemas operacionais diferentes.
+
+-------------Ferramentas necessárias-----------------------------------
+- Uma máquina com versão atualizada de uma das distribuição LINUX existentes (Ex: Ubuntu)
+- Python 3+ : Caso não possua, para instalar basta abrir um terminal e executar o seguinte comando "sudo apt-get install python3" ou similar conforme distribuição
+- Apache 2  : Caso não possua, utilizar o comando "sudo apt install apache2" em um terminal ou similar conforme distribuição.
+- Blazegraph: Basta procurar a versão .jar mais recente no próprio site da blazegraph.
+-----------------------------------------------------------------------
+
+-------------Configurando e iniciando o servidor web-------------------
+Considerando que o apache foi instalado de maneira padrão os arquivos do servidor web 
+devem ser inseridos dentro do diretório html (/var/www/html) de modo a ficarem organizados
+conforme o diagrama abaixo.
+
+/var/www/html
+|-- index.html
+|-- *.png
+|-- style.css
+|-- REST
+	|-- module.py
+	|-- rest.py
+	|-- swagger.yml
+	|-- insert.nt
+	|-- ns.xml
+	|-- document_similarity
+	|   |-- data
+	|	|	`--(Arquivos de bases de dados Word2vec e stopwords)
+	|   `-- DocSim.py
+	|
+	`-- bank_setups
+		|-- newsite_bd.cgi
+		|-- search.cgi
+		`-- (Diretórios numerados que vão aparecer conforme videos vão sendo inseridos no sistema)
+		
+Importante lembrar que os códigos são muito sensíveis quanto ao posicionamento destes arquivos e qualquer modificação
+feita em relação a essa estrutura deve ser refletida também nos códigos que dela dependem, sendo principalmente mas não exclusivamente estes:
+-module.py
+-search.cgi
+-newsite_bd.cgi
+
+Uma vez dispostos conforme informado anteriormente, o servidor apache se recentemente instalado ainda não foi 
+configurado para interpretar arquivos PYTHON-CGI. Para configurar siga os seguintes passos:
+-Em um terminal utilize o comando : sudo a2enmod cgi. Isso ativa as configurações do apache para cgi automaticamente.
+
+-Dentro do arquivo apache2.conf (Geralmente em etc/apache2/) Adicione o fragmento abaixo junto a outros <Directory> ... </Directory>
+que se encontram no arquivo. Isso define onde o apache deve buscar e interpretar os arquivos como CGI.
+
+<Directory /var/www/html/REST/bank_setups/>
+        Options Indexes FollowSymLinks
+        Options ExecCGI
+        SetHandler cgi-script
+        AllowOverride None
+        Require all granted
+</Directory>
+
+Feito isso, as instruções abaixo devem ser seguidas para evitar erros de codificação durante a interpretação dos arquivos CGI
+
+- Ao final do mesmo arquivo (apache2.conf) adicione o seguinte trecho : PassEnv LANG
+- Procure pelo arquivo envvars (geralmente se encontra no mesmo diretório de apache2.conf) e
+  caso esteja comentado, retire o # da linha " . /etc/default/locale ".
+- Verifique se o arquivo locale (/etc/default/locale) possui uma linha com algo escrito similar a isto : "LANG="en_US.UTF-8" 
+- Reinicie o servidor apache : sudo service apache2 restart
+
+
+Após estas configurações o servidor web deverá funcionar normalmente.
+
+------------------------API REST e Blazegraph------------------------
+Uma vez que os arquivos estejam dispostos corretamente como descrito na seção anterior,
+a inicialização da API REST se resume a rodar o seguinte comando
+- python3 rest.py
+
+Não há muitas restrições sobre onde estão os arquivos do blazegraph, mas os códigos estão
+configurados para se comunicar com um servidor blazegraph rodando na própria máquina (localhost)
+pela porta padrão de inicialização (9999), caso queira realizar mudanças quanto a isso alterações
+deverão ser feitas nos arquivos citados anteriormente como sensíveis a estrutura.
+
+A API REST consiste de um único serviço que recebe como padrão um arquivo zip contendo todas as informações
+necessárias de um video previamente processado pela segmentação e faz as organizações necessárias dentro do
+diretório bank_setups e dentro de um namespace específico do blazegraph pra onde o video foi enviado.
+
+O arquivo zip deve possuir: o .mp4 do video (GEN.mp4),  um arquivo .JSON com a distribuição das cenas (GEN.json), um arquivo com
+a divisão dos fragmentoss de audio do vídeo (chunks) e seu tempo de duração (seg.txt), uma pasta com a transcrição dos chunks.
+
+Uma vez em posse de um zip contendo as informações citadas acima , obrigatoriamente com os nomes citados (renomeie se necessário),
+o seguinte comando requisita o serviço da API para manusear o arquivo e fazer as organizações necessárias.
+
+- curl -F "upfile=@filename.zip" -F bankid=X 'http://localhost:5000/api/upload'
+
+onde bankid deve receber o número (INTEIRO) referente ao namespace no qual deseja inserir o vídeo, caso o namespace ainda não exista o serviço
+trata de gerar um namespace novo com aquele número. Os cálculos de relacionamentos são feitos somente entre vídeos de um mesmo namespace e o acesso
+a estes namespaces adicionais devem ser configurados no index.html.
+
